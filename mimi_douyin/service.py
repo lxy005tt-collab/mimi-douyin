@@ -11,6 +11,7 @@ from .media import prepare_video
 from .perception import transcribe_video,format_transcript
 from .runtime import RuntimeEnvironment
 from .transport import BrowserWorker,Ledger
+from .cache import CacheMaintenance
 
 class DouyinService:
     def __init__(self,config):
@@ -22,6 +23,7 @@ class DouyinService:
         self.job_lock=asyncio.Lock();self.action_lock=asyncio.Lock();self.activities=ActivityEngine(self)
         self.last_error='';self.state='paused';self.closed=False;self.tasks=[];self.install_task=None
         self.install_state={'running':False,'message':'尚未安装'}
+        self.cache=CacheMaintenance(self)
         # 处理失败（尚未进入发送）的批次保留在这里，下一轮轮询有限重试；
         # 已经进入发送/结果未知的批次绝不重试，避免重复发送。
         self.pending_retry={}
@@ -42,10 +44,12 @@ class DouyinService:
     def persona(self):return hashlib.sha256(self.config.get('system_prompt','').encode()).hexdigest()
 
     async def start(self):
+        self.cache.start()
         self.tasks=[asyncio.create_task(self._monitor()),asyncio.create_task(self._autonomous())]
 
     async def close(self):
         self.closed=True
+        await self.cache.close()
         for task in [*self.tasks,self.install_task]:
             if task:task.cancel()
         await asyncio.gather(*(task for task in [*self.tasks,self.install_task] if task),return_exceptions=True)

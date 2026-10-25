@@ -20,6 +20,9 @@
     $('video-key').placeholder=data.settings.video_api_key_configured?'已保存独立密钥；留空保留':'留空沿用聊天接口密钥';
     $('use-chat-key').checked=false;
     $('effective-dir').textContent='当前保存位置：'+data.runtime.media_dir+'；登录资料：'+data.runtime.browser_profile;
+    const cache=data.cache_cleanup||{},last=cache.last_cleanup;
+    $('cache-state').textContent=(cache.cache_cleanup_enabled?'下次清理：'+(cache.next_run_at?new Date(cache.next_run_at*1000).toLocaleString():'等待计时'):'定时清理未开启。')+
+      (last?'；上次清理 '+last.deleted_files+' 个文件，释放 '+(last.deleted_bytes/1024/1024).toFixed(1)+' MB':'')+(cache.last_error?'；'+cache.last_error:'');
     $('dependencies').replaceChildren();
     for(const dependency of data.runtime.dependencies){const row=document.createElement('tr');for(const value of [dependency.name,dependency.ready?'可用':'未就绪',(dependency.path||dependency.hint)+(dependency.version?' · '+dependency.version:'')]){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}if(!dependency.ready&&dependency.url){const link=document.createElement('a');link.href=dependency.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='安装说明';row.lastChild.append(document.createElement('br'),link);}$('dependencies').append(row);}
     $('state').textContent=(data.bot.auto_reply_enabled?'回复已开启':'回复已暂停')+(data.bot.last_error?'；'+data.bot.last_error:'');
@@ -27,7 +30,7 @@
     $('install-state').textContent=data.install.message;if(data.install.running)poll();
   }
   $('settings').addEventListener('submit',event=>{event.preventDefault();run(async()=>{
-    const values={};for(const field of $('settings').elements){if(!field.name)continue;values[field.name]=field.type==='checkbox'?field.checked:field.type==='number'?Number(field.value):field.name==='private_whitelist'?field.value.split('\n').map(value=>value.trim()).filter(Boolean):field.value;}
+    const values={};for(const field of $('settings').elements){if(!field.name)continue;values[field.name]=field.type==='checkbox'?field.checked:field.type==='number'?(field.value.trim()===''?'':Number(field.value)):field.name==='private_whitelist'?field.value.split('\n').map(value=>value.trim()).filter(Boolean):field.value;}
     if(String(values.video_api_key||'').trim())values.use_chat_video_key=false;
     const result=await api('settings',values);$('api-key').value='';$('video-key').value='';notice(result.message);await load();
   });});

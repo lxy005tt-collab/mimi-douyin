@@ -128,6 +128,7 @@ class RuntimeEnvironment:
     def settings(self):
         browser=self.system_browser()
         return {**self.config,'node_binary':self.node,'playwright_package':str(self.playwright_package),
+            'media_cache_registry':str(self.data_dir/'media-cache.sqlite3'),
             'browser_profile':str(self.profile_dir),'media_dir':str(self.media_dir),
             'browser_channel':browser['channel'],'browser_executable':browser['executable'],
             'playwright_browsers_path':str(self.browser_cache)}

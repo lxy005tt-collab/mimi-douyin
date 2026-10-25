@@ -1,8 +1,10 @@
 import json
 import os
 from pathlib import Path
+from .cache import CACHE_DEFAULTS
 
 DEFAULTS={
+    **CACHE_DEFAULTS,
     'enabled':True,'auto_reply_enabled':False,'whitelist_enabled':True,'private_whitelist':[],
     'media_dir':'','browser_profile':'','browser_type':'自动选择','browser_headless':False,
     'node_binary':'','playwright_package':'','browser_executable':'','ffmpeg_binary':'','ffprobe_binary':'',

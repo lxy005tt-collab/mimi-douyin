@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 def main():
-    parser=argparse.ArgumentParser(description='Mimi 抖音：不需要 AstrBot 的本地运行入口。')
+    parser=argparse.ArgumentParser(description='与bot刷抖音：不需要 AstrBot 的本地运行入口。')
     parser.add_argument('command',choices=('serve','check'),nargs='?',default='serve')
     parser.add_argument('--data-dir',default=str(Path.cwd()/'data'))
     parser.add_argument('--port',type=int,default=8787)

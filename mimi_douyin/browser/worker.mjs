@@ -142,7 +142,13 @@ input.on('line',line=>{queue=queue.then(async()=>{
     request=JSON.parse(line);
     const actions={open:()=>open(request.args),status,snapshot:()=>snapshot(request.args),send:()=>send(request.args),download:()=>download(request.args),post_info:()=>postInfo(request.args),
       browse:()=>explore('browse',request.args),comment:()=>explore('comment',request.args),
-      configure:async()=>{await fs.mkdir(request.args.media_dir,{recursive:true});settings.media_dir=request.args.media_dir;return {media_dir:settings.media_dir};},
+      configure:async()=>{
+        const limit=request.args.max_download_mb??settings.max_download_mb;
+        if(!Number.isInteger(limit)||limit<1||limit>10000)throw new Error('作品下载大小上限应为 1～10000 MB。');
+        await fs.mkdir(request.args.media_dir,{recursive:true});
+        settings.media_dir=request.args.media_dir;settings.max_download_mb=limit;
+        return {media_dir:settings.media_dir,max_download_mb:settings.max_download_mb};
+      },
       close:async()=>{await context?.close();context=null;page=null;return {closed:true};}};
     if(!actions[request.action])throw new Error('未知浏览器操作。');
     const result=await actions[request.action]();

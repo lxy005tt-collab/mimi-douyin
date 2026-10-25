@@ -10,6 +10,7 @@ from .config import Settings,DEFAULTS
 from .errors import BrowserError
 from .runtime import RuntimeEnvironment,browse_directories
 from .service import DouyinService
+from .cache import media_settings,validate_media_settings
 
 def create_app(data_dir):
     config=Settings(data_dir);service=None;session=secrets.token_urlsafe(32)
@@ -50,13 +51,14 @@ def create_app(data_dir):
     @app.get('/api/status')
     async def status():
         return ok({'bot':service.status(),'settings':config.public(),'runtime':await service.runtime.diagnose(),
-                   'install':service.install_state,'standalone':True})
+                   'install':service.install_state,'cache_cleanup':service.cache.status(),'standalone':True})
 
     @app.post('/api/settings')
     async def save(request:Request):
         payload=await request.json()
         if not isinstance(payload,dict):raise BrowserError('设置应为对象。')
         changes={key:value for key,value in payload.items() if key in DEFAULTS}
+        changes.update(validate_media_settings(payload))
         for key,value in changes.items():
             default=DEFAULTS[key]
             if isinstance(default,bool) and not isinstance(value,bool):raise BrowserError('开关应为布尔值。')
@@ -102,15 +104,18 @@ def create_app(data_dir):
             restart=any(name in changes and changes[name]!=config.get(name) for name in
                         ('node_binary','playwright_package','browser_type','browser_headless','browser_executable','browser_profile'))
             running=bool(service.browser.process and service.browser.process.returncode is None)
-            if running and not restart:await service.browser.call('configure',{'media_dir':str(directory)})
+            previous_runtime={'media_dir':old_media,'max_download_mb':config.get('max_download_mb',64)}
+            next_runtime={'media_dir':str(directory),'max_download_mb':changes.get('max_download_mb',config.get('max_download_mb',64))}
+            if running and not restart:await service.browser.call('configure',next_runtime)
             config.update(changes)
             try:config.save_config()
             except Exception:
                 config.clear();config.update(before)
-                if running and not restart:await service.browser.call('configure',{'media_dir':old_media})
+                if running and not restart:await service.browser.call('configure',previous_runtime)
                 raise
             if running and restart:await service.browser.close()
             service.browser.config=service.runtime.settings()
+            service.cache.settings_changed()
             return ok({'message':'设置已保存。','restart_needed':restart})
 
     @app.post('/api/browse')

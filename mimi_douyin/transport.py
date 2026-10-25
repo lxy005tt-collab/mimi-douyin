@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 import time
 from .errors import BrowserError
+from .cache import CacheFiles
 
 class BrowserWorker:
     def __init__(self, config):
@@ -16,6 +17,7 @@ class BrowserWorker:
         self.pending={}
         self.sequence=0
         self.start_lock=asyncio.Lock()
+        self.cache_registration_error=''
 
     async def start(self):
         async with self.start_lock:
@@ -50,7 +52,14 @@ class BrowserWorker:
         self.pending[request_id]=future
         self.process.stdin.write((json.dumps({'id':request_id,'action':action,'args':args or {}},ensure_ascii=False)+'\n').encode())
         await self.process.stdin.drain()
-        try:return await asyncio.wait_for(future,timeout)
+        try:
+            result=await asyncio.wait_for(future,timeout)
+            if action in ('download','browse') and self.config.get('media_cache_registry'):
+                try:
+                    CacheFiles(self.config['media_cache_registry']).register(self.config['media_dir'],result)
+                    self.cache_registration_error=''
+                except (OSError,sqlite3.Error):self.cache_registration_error='缓存登记暂不可写，未登记的文件会保留。'
+            return result
         except asyncio.TimeoutError as exc:
             self.pending.pop(request_id,None)
             if action=='send':return {'state':'unknown','receipt':'browser_command_timeout'}
